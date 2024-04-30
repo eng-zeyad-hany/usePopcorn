@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Logo, NavBar, NumResults, Search } from "./navBar";
 import { Box, MovieList } from "./listBox";
 import StarRating from "./StarRating";
+import { useMovies } from "./useMovies";
+const KEY = "3b1a0d3b";
 
 const tempMovieData = [
   {
@@ -52,20 +54,20 @@ const tempWatchedData = [
 
 const average = (arr) =>
   arr.reduce((acc, cur, i, arr) => acc + cur / arr.length, 0);
-const KEY = "3b1a0d3b";
+
 export default function App() {
-  const [movies, setMovies] = useState([]);
   const [watched, setWatched] = useState(
     // call back function
     function () {
       return JSON.parse(localStorage.getItem("watched"));
     },
-    // [],
   );
-  const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState(null);
+  const { movies, isLoading, errorMessage } = useMovies(
+    query,
+    handleCloseMovie,
+  );
   function handleDeleteWatched(id) {
     setWatched((watched) => watched.filter((movie) => movie.imdbID !== id));
   }
@@ -85,51 +87,7 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem("watched", JSON.stringify(watched));
   }, [watched]);
-  useEffect(
-    function () {
-      const controller = new AbortController();
 
-      async function fetchMovies() {
-        try {
-          setIsLoading(true);
-          setErrorMessage("");
-          const res = await fetch(
-            `http://www.omdbapi.com/?apikey=${KEY}&s=${query}`,
-            { signal: controller.signal },
-          );
-
-          console.log(res);
-          if (!res.ok)
-            throw new Error("Someting went wrong with fetching movies");
-          const data = await res.json();
-
-          if (data.Response === "False") {
-            throw new Error("Movies not found");
-          }
-
-          setMovies(data.Search);
-          handleCloseMovie();
-          // setErrorMessage("");
-        } catch (error) {
-          if (error.name !== "AbortError") setErrorMessage(error.message);
-        } finally {
-          setIsLoading(false);
-        }
-      } // end async function fetchMovies
-      if (query.length < 3) {
-        setMovies([]);
-        setErrorMessage("");
-        return;
-      }
-
-      fetchMovies();
-
-      return function () {
-        controller.abort();
-      };
-    },
-    [query],
-  ); // dependancy array mean this effect run on mount in first time
   return (
     <>
       <NavBar>
@@ -187,6 +145,11 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
   const [movie, setMovie] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [userRating, setUserRating] = useState("");
+  const countRef = useRef(0);
+
+  useEffect(() => {
+    if (userRating) countRef.current = countRef.current + 1;
+  }, [userRating]);
 
   const {
     Title: title,
@@ -243,6 +206,7 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
       imdbRating: Number(imdbRating),
       runtime: runtime.split(" ").at(0),
       userRating,
+      countRatingDecisions: countRef.current,
     };
     onAddWatched(newWatchedMovie);
     onCloseMovie();
