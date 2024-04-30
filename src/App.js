@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
-import { Logo, NavBar, Search, NumResults } from "./navBar";
-import { Box, MovieList, Movie } from "./listBox";
+import { useEffect, useState } from "react";
+import { Logo, NavBar, NumResults, Search } from "./navBar";
+import { Box, MovieList } from "./listBox";
 import StarRating from "./StarRating";
 
 const tempMovieData = [
@@ -55,7 +55,13 @@ const average = (arr) =>
 const KEY = "3b1a0d3b";
 export default function App() {
   const [movies, setMovies] = useState([]);
-  const [watched, setWatched] = useState([]);
+  const [watched, setWatched] = useState(
+    // call back function
+    function () {
+      return JSON.parse(localStorage.getItem("watched"));
+    },
+    // [],
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [query, setQuery] = useState("");
@@ -72,8 +78,13 @@ export default function App() {
   }
   function handleAddWatched(movie) {
     setWatched((watched) => [...watched, movie]);
+    // key value pairs but in string format
+    // localStorage.setItem("watched", JSON.stringify([...watched, movie]));
   }
 
+  useEffect(() => {
+    localStorage.setItem("watched", JSON.stringify(watched));
+  }, [watched]);
   useEffect(
     function () {
       const controller = new AbortController();
@@ -84,9 +95,10 @@ export default function App() {
           setErrorMessage("");
           const res = await fetch(
             `http://www.omdbapi.com/?apikey=${KEY}&s=${query}`,
-            { signal: controller.signal }
+            { signal: controller.signal },
           );
 
+          console.log(res);
           if (!res.ok)
             throw new Error("Someting went wrong with fetching movies");
           const data = await res.json();
@@ -116,25 +128,19 @@ export default function App() {
         controller.abort();
       };
     },
-    [query]
+    [query],
   ); // dependancy array mean this effect run on mount in first time
   return (
     <>
       <NavBar>
         <Logo />
-        <Search
-          query={query}
-          setQuery={setQuery}
-        />
+        <Search query={query} setQuery={setQuery} />
         <NumResults movies={movies} />
       </NavBar>
       <Main>
         <Box>
           {!isLoading && !errorMessage && (
-            <MovieList
-              movies={movies}
-              onSelectMovie={handleSelectMovie}
-            />
+            <MovieList movies={movies} onSelectMovie={handleSelectMovie} />
           )}
           {isLoading && <Loader />}
           {errorMessage && <ErrorMessage message={errorMessage} />}
@@ -203,14 +209,14 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
         document.title = "usePopcorn";
       };
     },
-    [title]
+    [title],
   );
   useEffect(
     function () {
       async function getMovieDetails() {
         setIsLoading(true);
         const res = await fetch(
-          `http://www.omdbapi.com/?apikey=${KEY}&i=${selectedId}`
+          `http://www.omdbapi.com/?apikey=${KEY}&i=${selectedId}`,
         );
         if (!res.ok) throw new Error("Someting went wrong with fetching movie");
         const data = await res.json();
@@ -219,7 +225,7 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
       }
       getMovieDetails();
     },
-    [selectedId]
+    [selectedId],
   );
   function isWatched() {
     const watch = watched.filter((movie) => selectedId === movie.imdbID);
@@ -257,7 +263,7 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
         document.removeEventListener("keydown", handleKey);
       };
     },
-    [onCloseMovie]
+    [onCloseMovie],
   );
   return (
     <div className="details">
@@ -267,16 +273,10 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
         <>
           {" "}
           <header>
-            <button
-              className="btn-back"
-              onClick={onCloseMovie}
-            >
+            <button className="btn-back" onClick={onCloseMovie}>
               &larr;
             </button>
-            <img
-              src={poster}
-              alt={`Poster of ${movie} movie`}
-            />
+            <img src={poster} alt={`Poster of ${movie} movie`} />
             <div className={"details-overview"}>
               <h2>{title}</h2>
               <p>
@@ -300,10 +300,7 @@ function MovieDetails({ selectedId, onCloseMovie, onAddWatched, watched }) {
                   ></StarRating>
 
                   {userRating > 0 && (
-                    <button
-                      className={"btn-add"}
-                      onClick={handleAdd}
-                    >
+                    <button className={"btn-add"} onClick={handleAdd}>
                       + add to list
                     </button>
                   )}
@@ -370,10 +367,7 @@ function WatchedMovieList({ watched, onDeleteWatched }) {
 function WatchedMovie({ movie, onDeleteWatched }) {
   return (
     <li key={movie.imdbID}>
-      <img
-        src={movie.poster}
-        alt={`${movie.Title} poster`}
-      />
+      <img src={movie.poster} alt={`${movie.Title} poster`} />
       <h3>{movie.title}</h3>
       <div>
         <p>
